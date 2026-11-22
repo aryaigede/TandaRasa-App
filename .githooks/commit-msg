@@ -1,0 +1,18 @@
+#!/bin/sh
+# Menghapus baris atribusi AI dari pesan commit sebelum commit dibuat.
+# Aktifkan sekali per clone:  git config core.hooksPath .githooks
+
+msg_file="$1"
+tmp_file="$(mktemp)"
+
+grep -viE '^[[:space:]]*(Co-Authored-By:.*(anthropic\.com|claude|openai|chatgpt|codex|copilot|cursor|gemini)|.*Generated with .*(Claude|Codex|Copilot|Cursor|Gemini)|Claude-Session:)' "$msg_file" > "$tmp_file"
+
+# Buang baris kosong berlebih di akhir pesan.
+sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$tmp_file" > "$msg_file"
+rm -f "$tmp_file"
+
+# Tolak commit bila pesannya jadi kosong.
+if ! grep -qv '^[[:space:]]*$' "$msg_file"; then
+  echo "commit-msg: pesan commit kosong setelah atribusi dihapus." >&2
+  exit 1
+fi
