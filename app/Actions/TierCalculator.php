@@ -45,7 +45,7 @@ final class TierCalculator
         }
 
         // Semua tanggal sudah dipastikan berformat Y-m-d, jadi perbandingan string aman.
-        $windowStart = $latest->modify('-' . (self::WINDOW_DAYS - 1) . ' days')->format('Y-m-d');
+        $windowStart = $latest->modify('-'.(self::WINDOW_DAYS - 1).' days')->format('Y-m-d');
 
         // Satu kunci per tanggal, jadi yang dihitung adalah tanggal berbeda.
         $highRiskDates = array_filter(
