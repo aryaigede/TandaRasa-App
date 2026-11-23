@@ -22,7 +22,7 @@ final class TierCalculator
 
     /**
      * @param  array<string, RiskSignal>  $signalsByDate  kunci 'Y-m-d', hanya tanggal yang punya entri berstatus done
-    * @param  string  $latestDate  'Y-m-d' entri terbaru; sinyalnya wajib ada di $signalsByDate
+     * @param  string  $latestDate  'Y-m-d' entri terbaru; sinyalnya wajib ada di $signalsByDate
      *
      * @throws InvalidArgumentException bila format tanggal atau nilai sinyal tidak valid, atau sinyal tanggal terbaru belum ada (pemanggil harus menampilkan status analisis tertunda, bukan tier).
      */
@@ -45,7 +45,7 @@ final class TierCalculator
         }
 
         // Semua tanggal sudah dipastikan berformat Y-m-d, jadi perbandingan string aman.
-        $windowStart = $latest->modify('-'.(self::WINDOW_DAYS - 1).' days')->format('Y-m-d');
+        $windowStart = $latest->modify('-' . (self::WINDOW_DAYS - 1) . ' days')->format('Y-m-d');
 
         // Satu kunci per tanggal, jadi yang dihitung adalah tanggal berbeda.
         $highRiskDates = array_filter(
