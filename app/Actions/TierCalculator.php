@@ -11,7 +11,7 @@ use InvalidArgumentException;
 /**
  * Menentukan tier dari sinyal risiko per tanggal (FR-10).
  *
- * Kelas murni: tanpa database, HTTP, atau waktu sistem. Aturannya ada di 
+ * Kelas murni: tanpa database, HTTP, atau waktu sistem.
  */
 final class TierCalculator
 {

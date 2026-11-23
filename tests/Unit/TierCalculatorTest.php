@@ -117,7 +117,7 @@ test('H-6 masih termasuk jendela', function () {
 });
 
 test('tanggal setelah entri terbaru diabaikan', function () {
-    expect(tierFor(tierSignals([
+    $signals = tierSignals([
         2 => RiskSignal::Tinggi,
         0 => RiskSignal::Tinggi,
         -1 => RiskSignal::Tinggi,
