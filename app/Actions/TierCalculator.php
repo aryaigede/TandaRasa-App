@@ -11,8 +11,7 @@ use InvalidArgumentException;
 /**
  * Menentukan tier dari sinyal risiko per tanggal (FR-10).
  *
- * Kelas murni: tanpa database, HTTP, atau waktu sistem. Aturannya ada di
- * docs/ai-contract.md bagian 4. LLM tidak pernah menentukan tier.
+ * Kelas murni: tanpa database, HTTP, atau waktu sistem. Aturannya ada di 
  */
 final class TierCalculator
 {
@@ -23,11 +22,30 @@ final class TierCalculator
 
     /**
      * @param  array<string, RiskSignal>  $signalsByDate  kunci 'Y-m-d', hanya tanggal yang punya entri berstatus done
-     * @param  string  $latestDate  'Y-m-d' entri terbaru
+    * @param  string  $latestDate  'Y-m-d' entri terbaru; sinyalnya wajib ada di $signalsByDate
+     *
+     * @throws InvalidArgumentException bila format tanggal atau nilai sinyal tidak valid, atau sinyal tanggal terbaru belum ada (pemanggil harus menampilkan status analisis tertunda, bukan tier).
      */
     public function calculate(array $signalsByDate, string $latestDate): Tier
     {
-        $windowStart = $this->windowStart($latestDate);
+        $latest = $this->parseDate($latestDate);
+
+        foreach ($signalsByDate as $date => $signal) {
+            $this->parseDate((string) $date);
+
+            if (! $signal instanceof RiskSignal) {
+                throw new InvalidArgumentException("Sinyal untuk tanggal {$date} harus berupa RiskSignal.");
+            }
+        }
+
+        if (! array_key_exists($latestDate, $signalsByDate)) {
+            throw new InvalidArgumentException(
+                "Sinyal untuk tanggal entri terbaru ({$latestDate}) belum ada; tampilkan status analisis tertunda."
+            );
+        }
+
+        // Semua tanggal sudah dipastikan berformat Y-m-d, jadi perbandingan string aman.
+        $windowStart = $latest->modify('-'.(self::WINDOW_DAYS - 1).' days')->format('Y-m-d');
 
         // Satu kunci per tanggal, jadi yang dihitung adalah tanggal berbeda.
         $highRiskDates = array_filter(
@@ -42,20 +60,20 @@ final class TierCalculator
             return Tier::Merah;
         }
 
-        return match ($signalsByDate[$latestDate] ?? null) {
+        return match ($signalsByDate[$latestDate]) {
             RiskSignal::Sedang, RiskSignal::Tinggi => Tier::Kuning,
-            default => Tier::Hijau,
+            RiskSignal::Rendah => Tier::Hijau,
         };
     }
 
-    private function windowStart(string $latestDate): string
+    private function parseDate(string $value): DateTimeImmutable
     {
-        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $latestDate, new DateTimeZone('UTC'));
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value, new DateTimeZone('UTC'));
 
-        if ($date === false || $date->format('Y-m-d') !== $latestDate) {
-            throw new InvalidArgumentException('Tanggal entri terbaru harus berformat Y-m-d.');
+        if ($date === false || $date->format('Y-m-d') !== $value) {
+            throw new InvalidArgumentException("Tanggal '{$value}' harus berformat Y-m-d.");
         }
 
-        return $date->modify('-'.(self::WINDOW_DAYS - 1).' days')->format('Y-m-d');
+        return $date;
     }
 }
