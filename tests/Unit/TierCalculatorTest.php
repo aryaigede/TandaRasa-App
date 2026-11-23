@@ -22,7 +22,7 @@ function tierSignals(array $signalsByDaysAgo): array
     $signals = [];
 
     foreach ($signalsByDaysAgo as $daysAgo => $signal) {
-        $date = (new DateTimeImmutable(TIER_LATEST_DATE))->modify("-{$daysAgo} days")->format('Y-m-d');
+        $date = (new DateTimeImmutable(TIER_LATEST_DATE))->modify(sprintf('%+d days', -$daysAgo))->format('Y-m-d');
         $signals[$date] = $signal;
     }
 
@@ -121,7 +121,10 @@ test('tanggal setelah entri terbaru diabaikan', function () {
         2 => RiskSignal::Tinggi,
         0 => RiskSignal::Tinggi,
         -1 => RiskSignal::Tinggi,
-    ])))->toBe(Tier::Kuning);
+    ]);
+
+    expect($signals)->toHaveKey('2026-11-21')
+        ->and(tierFor($signals))->toBe(Tier::Kuning);
 });
 
 test('merah dinilai dari pola walaupun entri terbaru rendah', function () {
@@ -164,3 +167,24 @@ test('urutan masukan tidak mengubah hasil', function () {
 test('tanggal entri terbaru yang tidak valid ditolak', function (string $date) {
     tierFor([], $date);
 })->with(['20-11-2026', '2026-02-30', ''])->throws(InvalidArgumentException::class);
+
+test('sinyal tanggal terbaru yang belum ada ditolak, bukan dianggap hijau', function () {
+    // Analisis entri H masih pending/failed; pemanggil harus menampilkan "analisis tertunda".
+    tierFor(tierSignals([2 => RiskSignal::Tinggi, 1 => RiskSignal::Tinggi]));
+})->throws(InvalidArgumentException::class, 'belum ada');
+
+test('kunci tanggal yang tidak berformat Y-m-d ditolak', function (string $badKey) {
+    tierFor([
+        $badKey => RiskSignal::Tinggi,
+        TIER_LATEST_DATE => RiskSignal::Tinggi,
+    ]);
+})->with([
+    'cast string Carbon' => '2026-11-19 00:00:00',
+    'format ISO' => '2026-11-19T08:00',
+    'tanpa nol di depan' => '2026-11-9',
+    'tanggal mustahil' => '2026-02-30',
+])->throws(InvalidArgumentException::class, 'berformat Y-m-d');
+
+test('nilai sinyal yang bukan RiskSignal ditolak', function () {
+    tierFor([TIER_LATEST_DATE => 'tinggi']);
+})->throws(InvalidArgumentException::class, 'RiskSignal');
