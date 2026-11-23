@@ -21,7 +21,7 @@ final class TierCalculator
     private const RED_MIN_DATES = 3;
 
     /**
-     * @param  array<string, RiskSignal>  $signalsByDate  kunci 'Y-m-d', hanya tanggal yang punya entri berstatus done
+     * @param  array<string, mixed>  $signalsByDate  kunci 'Y-m-d', hanya tanggal yang punya entri berstatus done
      * @param  string  $latestDate  'Y-m-d' entri terbaru; sinyalnya wajib ada di $signalsByDate
      *
      * @throws InvalidArgumentException bila format tanggal atau nilai sinyal tidak valid, atau sinyal tanggal terbaru belum ada (pemanggil harus menampilkan status analisis tertunda, bukan tier).
