@@ -4,8 +4,10 @@ namespace App\Models;
 
 use Carbon\CarbonImmutable;
 use Database\Factories\EntryFactory;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -59,6 +61,18 @@ class Entry extends Model
     public function analysis(): HasOne
     {
         return $this->hasOne(AnalysisResult::class);
+    }
+
+    /**
+     * Entri pada satu tanggal kalender. Pakai scope ini, jangan `where('entry_date', ...)`:
+     * SQLite menyimpan kolom date sebagai "Y-m-d 00:00:00", sehingga perbandingan string biasa
+     * tidak cocok, sedangkan `whereDate` bekerja sama di semua engine basis data.
+     *
+     * @param  Builder<Entry>  $query
+     */
+    public function scopeOnDate(Builder $query, DateTimeInterface|string $date): void
+    {
+        $query->whereDate('entry_date', $date);
     }
 
     /**
