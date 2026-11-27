@@ -5,7 +5,9 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -24,8 +26,13 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
  * @property string|null $remember_token
+ * @property string|null $consent_version
+ * @property Carbon|null $consented_at
+ * @property bool $reminder_enabled
+ * @property string|null $reminder_time
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read Collection<int, Entry> $entries
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
@@ -44,7 +51,19 @@ class User extends Authenticatable implements PasskeyUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'consented_at' => 'datetime',
+            'reminder_enabled' => 'boolean',
         ];
+    }
+
+    /**
+     * Entri harian milik pengguna. Query entri selalu lewat relasi ini (FR-21).
+     *
+     * @return HasMany<Entry, $this>
+     */
+    public function entries(): HasMany
+    {
+        return $this->hasMany(Entry::class);
     }
 
     /**
