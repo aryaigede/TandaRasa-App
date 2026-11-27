@@ -1,7 +1,10 @@
 # Skema Data dan API Mapping
 
-Versi: 0.1 (draf, menunggu persetujuan) · Acuan: FSD v1.1, `docs/ai-contract.md`, `.ai/guidelines/`
+Versi: 0.2 (draf) · Acuan utama: **FSD v1.1**, lalu `docs/ai-contract.md` dan `.ai/guidelines/`
 Pemilik: Irfan (backend) dan Arya (frontend). Perubahan dokumen ini harus disetujui keduanya.
+
+Bila dokumen ini berbeda dengan FSD v1.1, yang berlaku adalah FSD. Bagian 5 mencatat dasar FSD untuk
+setiap keputusan.
 
 TandaRasa **tidak punya REST API terpisah**. Halaman Livewire (frontend) memanggil Action di
 `app/Actions/` (backend). Dokumen ini adalah "menu" Action tersebut: apa yang dikirim frontend,
@@ -47,7 +50,10 @@ membutuhkannya.
 
 ### 1.2 `analysis_results` (hasil analisis per entri, FR-09 sampai FR-12, FR-24)
 
-Kolom mengikuti `docs/ai-contract.md` bagian 2, ditambah `tier` dan `entry_updated_at`.
+Kolom mengikuti `docs/ai-contract.md` bagian 2, ditambah `tier`, `suggestions`, dan `entry_updated_at`.
+
+Untuk entri tanpa jurnal (`source = mood_rule`), `reason` dan `summary` diisi teks tetap dari
+backend, bukan dari AI (FR-09, FR-12).
 
 | Kolom              | Tipe                                    | Keterangan                                                  |
 | ------------------ | --------------------------------------- | ----------------------------------------------------------- |
@@ -61,6 +67,7 @@ Kolom mengikuti `docs/ai-contract.md` bagian 2, ditambah `tier` dan `entry_updat
 | `emotions`         | json, nullable                          | Maks. 3 label                                               |
 | `reason`           | string(200), nullable                   | Alasan singkat untuk pengguna                               |
 | `summary`          | text, nullable                          | Ringkasan kondisi                                           |
+| `suggestions`      | json, nullable                          | 1–3 micro-intervention dari AI (lihat bagian 5 poin 4)      |
 | `source`           | string (`AnalysisSource`), nullable     | `ai` atau `mood_rule`; null selama belum `done`             |
 | `prompt_version`   | string, nullable                        | Wajib bila `source = ai`                                    |
 | `model`            | string, nullable                        | Nama model yang menjawab                                    |
@@ -135,6 +142,10 @@ support_contacts (berdiri sendiri, tidak terkait pengguna)
   | `done`                  | Tier, alasan, ringkasan, dan keterangan bukan diagnosis        |
 
 - **Setiap hasil `done`** wajib menampilkan teks: "Hasil ini indikasi awal, bukan diagnosis."
+- **Penyimpanan otomatis (FR-08):** tanggal dan waktu entri dicatat otomatis oleh backend (pengguna
+  tidak mengisi tanggal). Entri tersimpan di database, sehingga saat halaman dimuat ulang isinya
+  diambil lagi lewat `GetTodayEntry`. Memilih skor mood langsung menyimpan entri (satu ketukan,
+  FR-06, NFR-01); jurnal disimpan saat pengguna menekan simpan.
 - **Tier tidak boleh dibedakan hanya lewat warna:** selalu ikon dan label dari `Tier::label()`.
 
 ---
@@ -202,6 +213,7 @@ handle(User $user, int $entryId): EntryResult   // 404 bila entri bukan milik $u
 | `reason`          | ?string                  |                                                               |
 | `summary`         | ?string                  |                                                               |
 | `emotions`        | list<string>             | Maks. 3                                                       |
+| `responseMessage` | ?string                  | Teks respons per tier: afirmasi + ajakan refleksi (Hijau, FR-16), pengantar saran (Kuning), pesan suportif (Merah, FR-18). Pesan suportif FR-24 bila `safetyFlag` |
 | `interventions`   | list<string>             | 1–3 saran, **hanya** bila tier Kuning (FR-17); selain itu kosong |
 | `showSupport`     | bool                     | true bila tier Merah **atau** `safety_flag` (FR-18, FR-24)    |
 | `safetyFlag`      | bool                     | true → tampilkan juga kontak darurat, apa pun tiernya         |
@@ -220,6 +232,7 @@ Contoh (tier Kuning):
     "reason": "Beberapa hari terakhir kamu menulis soal kurang tidur dan tugas yang menumpuk.",
     "summary": "Kamu sedang dalam tekanan, tapi masih berusaha mengatur waktu.",
     "emotions": ["lelah", "cemas"],
+    "responseMessage": "Kamu sudah bertahan sejauh ini. Coba satu langkah kecil di bawah ini, ya.",
     "interventions": [
         "Tarik napas pelan 4 hitungan, tahan 4, buang 6. Ulangi 5 kali.",
         "Tulis 3 tugas paling penting besok, sisanya biarkan dulu."
@@ -330,16 +343,31 @@ check-in hari itu.
 Bila analisis entri lama baru selesai setelah entri yang lebih baru sudah punya tier (mis. hasil
 retry), tier entri-entri sesudahnya dalam jendela 7 hari dihitung ulang.
 
+Teks tetap (respons per tier, saran cadangan, `reason`/`summary` untuk entri tanpa jurnal) disimpan
+di satu file konfigurasi backend supaya mudah direview tim dan dicek bebas istilah diagnosis.
+
 ---
 
-## 5. Keputusan yang perlu disetujui
+## 5. Keputusan dan dasarnya di FSD v1.1
 
-1. **Satu tabel `entries`** (bukan `mood_entries` + `journal_entries`).
-2. **Jurnal dienkripsi** di database dengan cast `encrypted`.
-3. **Batas jurnal 2000 karakter.** FSD hanya menyebut "singkat".
-4. **Sumber micro-intervention:** usul awal memakai daftar saran yang dikurasi tim
-   (`config/interventions.php`), dipilih 1–3 berdasarkan emosi entri. Lebih aman dari saran medis dan
-   tidak butuh panggilan AI tambahan. Alternatifnya, saran dibuat AI dan divalidasi.
-5. **Tiga checkbox persetujuan** saat registrasi (bukan satu).
-6. **Akses data orang lain = 404.**
-7. **Penyedia AI** untuk `AnalyzeEntry` (belum ditentukan, FSD Tabel 2.9).
+Kesepakatan tim: semua keputusan mengikuti FSD v1.1. Bila FSD tidak mengatur, dipilih cara paling
+sederhana yang tetap memenuhi requirement terkait.
+
+| #   | Keputusan                                                         | Dasar di FSD v1.1                                                                                                                          |
+| --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Satu tabel `entries` berisi mood dan jurnal                       | 2.9.3: entri harian "terdiri atas satu skor mood dan paling banyak satu jurnal". FSD tidak memuat ERD terpisah.                             |
+| 2   | Jurnal dienkripsi di database (cast `encrypted`)                  | NFR-06: jurnal adalah data pribadi sensitif yang hanya dibuka pemiliknya. Tidak mengubah apa pun di frontend.                               |
+| 3   | Jurnal maks. 2000 karakter                                        | FR-07: "teks bebas singkat"; FR-08: input wajib divalidasi. Angka 2000 adalah batas teknis validasi.                                       |
+| 4   | Micro-intervention dibuat AI dari jurnal; cadangan teks tetap     | 3.2: "Micro-intervention personal"; Tabel 3.3: "Micro-intervention AI". FR-09: entri **tanpa** jurnal tidak dikirim ke AI, jadi entri itu memakai saran tetap yang dikurasi tim. |
+| 5   | Tiga checkbox persetujuan, dicatat versi dan waktunya             | FR-03: persetujuan atas tiga hal (data, pemrosesan AI pihak ketiga, bukan diagnosis); registrasi gagal tanpa persetujuan.                  |
+| 6   | Akses data orang lain ditolak dengan 404                          | FR-21: data hanya dapat diakses pemiliknya; `ai-contract.md` skenario 11: "Ditolak".                                                       |
+| 7   | Respons Hijau, Merah, dan FR-24 memakai teks tetap yang dikurasi  | FR-16, FR-18, FR-24 menyebut isi respons (afirmasi, pesan suportif) tanpa mewajibkan AI. Teks tetap lebih aman dari istilah diagnosis.      |
+
+Akibat poin 4, keluaran AI di `docs/ai-contract.md` bagian 3 perlu ditambah satu field:
+`"suggestions": ["string, maks. 150 karakter"]` (1–3 item, tanpa saran medis atau obat, tiap saran
+bisa dilakukan < 15 menit). Saran hanya ditampilkan bila tier Kuning (FR-17). Perubahan kontrak
+dilakukan di PR terpisah setelah disetujui Arya.
+
+**Masih terbuka:** penyedia AI. FSD Tabel 2.9 menulis "[penyedia ditentukan tim]", dan NFR-06
+mensyaratkan penyedia dipilih setelah memeriksa kebijakan datanya, dengan opsi "tidak dipakai untuk
+pelatihan model" diaktifkan bila tersedia. Sampai diputuskan, semua tes memakai respons AI palsu.
